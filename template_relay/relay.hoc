@@ -1,0 +1,243 @@
+load_file("nrngui.hoc")
+
+
+//----------------------------------------------------------------------------
+// retinal axon
+//----------------------------------------------------------------------------
+create retinal_axon
+//tc200_cc.oc
+retinal_axon {
+	insert pas
+	g_pas = 3.79e-5
+	e_pas = -76.5		// to fit current-clamp data (was -71 to -73)
+	cm = 0.88
+	Ra = 173
+
+	insert hh2		// insert fast spikes
+	ena = 50
+	ek = -100
+	vtraub_hh2 = -52
+	gnabar_hh2 = 0.01		// adapted to single-compartment
+	gkbar_hh2 = 0.01 		// adapted to single-compartment
+
+	insert itGHK		// T-current everywhere
+	cai = 2.4e-4 
+	cao = 2 
+	eca = 120 
+	shift_itGHK = -1	// screening charge shift + 3 mV error
+	gcabar_itGHK = 0.0002
+	pcabar_itGHK = 8e-5
+	qm_itGHK = 2.5
+	qh_itGHK = 2.5
+	
+	insert cad		// calcium diffusion everywhere
+	depth_cad = 0.1
+	kt_cad = 0		// no pump
+	kd_cad = 1e-4
+	taur_cad = 5
+	cainf_cad = 2.4e-4	
+}
+
+
+load_file("template/TCcell.tem")
+
+//----------------------------------------------------------------------------
+// adding templated relay cells
+//----------------------------------------------------------------------------
+ncells=1		// sets the number of cells
+objectvar TC[ncells]			// create an array of object variables
+//corrD = 1
+for i=0, ncells-1 {	
+	if (i>ncells/2-1){
+		TC[i] = new TCcell()
+		TC[i].position(i+300, 5, (i-ncells/2)*200) // move origin of cel to (10, 5, -25)		
+	}else{
+		TC[i] = new TCcell()
+		TC[i].position(i, 5, i*200) // move origin of cel to (10, 5, -25)
+		
+	}
+	// low density proximal, high distal, to match volt-clamp of intact cells
+	// localize(1.7e-5,corrD*8.5e-5,corrD*8.5e-5)
+}			
+
+distance(0, 0.5)
+  forall {
+  //  printf (secname())//, distance(0.5)
+    printf (" ")
+    print distance(0.5)
+  }
+
+
+//----------------------------------------------------------------------------
+// adding stimuli
+//----------------------------------------------------------------------------
+objectvar rstim // insert current injection
+
+retinal_axon rstim = new IClamp(.5)
+rstim.del = 0
+rstim.dur = 1e9 // dur has to be infinite when used with vector playing 
+rstim.amp = 0
+
+objref fspikes, vecspikes, vecstim
+fspikes=new File()
+fspikes.ropen("contrast/cs2_06.dat") // data exported from Virtual Retina simulator
+vecspikes=new Vector()
+vecstim = new Vector(4000,0)
+vecspikes.scanf(fspikes)
+for total=0, vecspikes.size()-1{
+    vecstim.x( int(vecspikes.x(total)*1000) ) = 4000
+}
+vecspikes.printf()
+vecstim.play( &rstim.amp, 1 )
+
+// Definition of the list of NetCon objects representing synapses to the retinal axon
+objectvar syn2retinal_axon
+syn2retinal_axon = new List()
+
+
+
+
+
+
+//----------------------------------------------------------------------------
+// retina -> relay AMPA 
+//----------------------------------------------------------------------------
+
+objectvar syn // won't be any different if using objref
+//dend_tc1[0] syn = new AMPA(0.5)
+TCcell[0].soma_tc syn = new AMPA(0.5)
+
+Prethresh_AMPA = 0 // (mV) voltage level nec for release
+retinal_axon syn2retinal_axon.append( new NetCon(&v(0.5), syn, Prethresh_AMPA, 0, 0.2) )
+
+/*
+objectvar TC0
+TC0 = new List()
+
+//----------------------------------------------------------------------------
+// relay -> relay AMPA 
+//----------------------------------------------------------------------------
+
+objectvar syn1 // won't be any different if using objref
+//dend_tc1[0] syn = new AMPA(0.5)
+TCcell[1].dend_tc4[0] syn1 = new AMPA(0.5)
+
+ // (mV) voltage level nec for release
+TCcell[0].soma_tc TC0.append( new NetCon(&v(0.5), syn1, 0, 0, 0.2) )
+
+*/
+
+/*
+//////////////////////////////////////////////////////////////////////////////
+//////////////////// Setting up RETINA -> LGN connections ////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//------------------ RETINA -> RELAY (AMPA, excitatory) ----------------------
+objectvar syn, spta, con // won't be any different if using objref
+objref time, id, rec, tobj
+time=new Vector()
+id=new Vector()
+rec= new List()
+TCcell[0].soma_tc syn = new AMPA(0.5)
+TCcell[0].soma_tc spta = new NetStim(0.5)
+// Possion train generator, 20Hz for spta as in Sakmann and Creutzfeldt, 1969
+// time course: 2500ms; # of spikes: 50; mean inter-spike interval: 50ms
+spta.interval= 50
+spta.number= 50
+spta.start=0
+spta.noise=1
+con=new NetCon(spta, syn, 0, 0, 0.22)
+*/
+
+//----------------------------------------------------------------------------
+// transient time
+//----------------------------------------------------------------------------
+trans = 00
+
+print " "
+print ">> Transient time of ",trans," ms"
+print " "
+
+
+//----------------------------------------------------------------------------
+// setup simulation parameters
+//----------------------------------------------------------------------------
+Dt = 0.2
+npoints = 12500
+
+dt = 0.1			// must be submultiple of Dt
+tstart = trans
+tstop = trans + npoints * Dt
+runStopAt = tstop
+steps_per_ms = 1/Dt
+
+celsius = 34			// temperature of John's experiments
+
+v_init = -74			// approximate resting Vm
+
+
+//----------------------------------------------------------------------------
+// adding graph(s): 
+// http://senselab.med.yale.edu/ModelDB/ShowModel.asp?model=18198&file=\SYN_NEW\gabab3.hoc
+//----------------------------------------------------------------------------
+objectvar g[20]         // max 20 graphs
+ngraph = 0
+
+proc addgraph() { local ii  // define subroutine to add a new graph
+                // addgraph("variable", minvalue, maxvalue)
+    ngraph = ngraph+1
+    ii = ngraph-1
+    g[ii] = new Graph()
+    g[ii].size(0,tstop,$2,$3)
+    g[ii].xaxis()
+    g[ii].yaxis()
+    g[ii].addvar($s1,1,0)
+    g[ii].save_name("graphList[0].")
+    graphList[0].append(g[ii])
+}
+addgraph("v(0.5)",-80,40)
+g.addvar("retinal_axon.v(0.5)",3,0.1) //blue
+
+addgraph("TCcell[0].soma_tc.v(0.5)",-80,40)
+//addgraph("TCcell[1].soma_tc.v(0.5)",-80,40)
+//addgraph("TCcell[2].soma_tc.v(0.5)",-80,40)
+//addgraph("TCcell[2].soma_tc.v(0.5)",-120,40)
+//addgraph("TCcell[1].dend_tc8[3].v(0.5)",-80,40)
+//----------------------------------------------------------------------------
+// save data
+//----------------------------------------------------------------------------
+objref recv, rect, savspike, cortexr
+rect = new Vector()
+recv = new Vector()
+cortexr=new Vector()
+rect.record(&t)
+recv.record(&TCcell[0].soma_tc.v(0.5))//recording from relay cell
+
+run()
+//myrun()
+
+savspike= new File()
+savspike.wopen("data/relay.dat")
+timestep=0 
+timestepi=0
+total=0 
+totali=0
+printf("relay cell")
+
+
+
+for i=0 && total=0, rect.size()-1 {
+    if (recv.x[i] >= -15 && timestep + 1 < rect.x(i)){
+	timestep=rect.x(i)
+	total=total+1
+	printf("%g\n", total)
+	printf("%g\n", timestep)
+	savspike.printf("%g\n", timestep)
+}
+}
+
+
+
+savspike.close()
+
+//forall {print secname()//, diam(0.5), area(0.5), ri(0.5), L}
+

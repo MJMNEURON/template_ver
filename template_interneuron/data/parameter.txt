@@ -1,0 +1,50 @@
+forall {
+	insert pas e_pas=-63 g_pas=1/22000 Ra=113 cm=1.1
+}
+
+forall {
+	insert iar ghbar_iar=0.00011*1
+	insert Cad
+	insert ical
+	insert it2
+	insert iahp
+	insert hhtraub ena=50 ek=-90
+	insert ican
+}
+soma_in {
+	
+	insert iar ghbar_iar=0.00011*1
+	insert Cad
+	insert ical
+	insert it2
+	insert iahp
+	insert hhtraub ena=50 ek=-90
+	insert ican
+}
+
+access soma_in
+	forall {
+	//print secname()
+	v=-63 e_pas=-67}
+	forall {
+	insert pas e_pas=-67 g_pas=1/22000 Ra=113 cm=1.1}
+
+forall {
+	gnabar_hhtraub = 0.09*0.1  vtraubNa_hhtraub = -52.6
+    gkbar_hhtraub = 0.005 vtraubK_hhtraub = -51.2
+	pcabar_ical = 0.0009*0.25
+	gkbar_iahp = 6.4e-5*0.1
+	ghbar_iar = 0.00011*1
+	gcabar_it2 = 1.17e-5*(1 + 2.39/60*distance(1))*1
+	gbar_ican = 2e-8*(1 + 2.39/60*distance(1))*1
+}
+
+soma_in {
+	gnabar_hhtraub = 0.09 vtraubNa_hhtraub = -52.6 
+	gkbar_hhtraub = 0.37 vtraubK_hhtraub = -51.2
+	gcabar_it2 = 1.17e-5
+	pcabar_ical = 0.0009
+	gkbar_iahp = 6.4e-5
+	ghbar_iar = 0.00011
+	gbar_ican = 2e-8
+}
